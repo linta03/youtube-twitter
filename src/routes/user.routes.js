@@ -1,16 +1,23 @@
 import { Router } from "express";
 import {
+  changeCurrentPassword,
+  getCurrentUser,
+  getUserProfile,
+  getWatchHistory,
   loginUser,
   logOutUser,
   refreshAccessToken,
   registerUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateUserCoverImg,
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-router.route("/api/v1/register").post(
+router.route("/register").post(
   upload.fields([
     {
       name: "avatar",
@@ -23,8 +30,21 @@ router.route("/api/v1/register").post(
   ]),
   registerUser,
 );
-router.route("/api/v1/login").post(loginUser);
-router.route("/api/v1/logout").post(verifyJWT, logOutUser);
-router.route("/api/v1/refreshAccessToken").post(refreshAccessToken);
+router.route("/login").post(loginUser);
+
+//Secured Routes (that needs user logged in ==> access token and refresh token)
+router.route("/logout").post(verifyJWT, logOutUser);
+router.route("/refreshAccessToken").post(refreshAccessToken);
+router.route("/changePassword").post(verifyJWT, changeCurrentPassword);
+router.route("/currentUser").get(verifyJWT, getCurrentUser);
+router.route("/updateAccountDetails").patch(verifyJWT, updateAccountDetails);
+router
+  .route("/updateAvatar")
+  .patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
+router
+  .route("/updateCoverImg")
+  .patch(verifyJWT, upload.single("coverImg"), updateUserCoverImg);
+router.route("/c/:userName").get(verifyJWT, getUserProfile);
+router.route("/watchHistory").get(verifyJWT, getWatchHistory);
 
 export default router;
