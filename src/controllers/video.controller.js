@@ -59,4 +59,95 @@ const uploadVideo = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, video, "Video Uploaded successfully"));
 });
 
-export { uploadVideo };
+const updateVideoDetails = asyncHandler(async (req, res) => {
+  if (!req?.user?._id) {
+    throw new ApiError("User should be authenticated to update video");
+  }
+  const { _id } = req?.body;
+  const { title, description, isPublished } = res?.body;
+
+  if (title.trim() === "" || description.trim() === "") {
+    throw new ApiError(400, "All fields are required (title & description)");
+  }
+
+  const video = await Video.findByIdAndUpdate(
+    _id,
+    {
+      $set: {
+        title,
+        description,
+        isPublished,
+      },
+    },
+    {
+      new: true,
+    },
+  ).select("-owner");
+  if (!video) {
+    throw new ApiError(
+      500,
+      "Something went wrong while updating video details",
+    );
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Video updated successfully"));
+});
+
+const updateVideoThumbnail = asyncHandler(async (req, res) => {
+  if (!req?.user?._id) {
+    throw new ApiError("User should be authenticated to update video");
+  }
+  const { _id } = req?.body;
+  const thumbnailPath = req?.files?.path;
+  if (!thumbnailPath) {
+    throw new ApiError(400, "Thumbnail file is required");
+  }
+
+  const thumbnail = await uploadOnCloudinary(thumbnailPath);
+  if (!thumbnail?.url) {
+    throw new ApiError(400, "Thumbnail not found");
+  }
+
+  const videoWithUpdatedDetails = await findByIdAndUpdate(
+    _id,
+    {
+      $set: {
+        thumbnail: thumbnail?.url,
+      },
+    },
+    {
+      new: true,
+    },
+  ).select("-owner");
+
+  if (!videoWithUpdatedDetails) {
+    throw new ApiError(500, "Error while saving thumbnail");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        videoWithUpdatedDetails,
+        "Thumbnail updated successFully",
+      ),
+    );
+});
+
+const deleteVideo = asyncHandler(async (req, res) => {
+  if (!req?.user?._id) {
+    throw new ApiError("User should be authenticated to update video");
+  }
+  const { _id } = req?.body;
+
+  const deletedVideo = await Video.findByIdAndDelete(_id);
+  if (!deletedVideo) {
+    throw new ApiError(404, `No video found with this (${_id}) id `);
+  }
+  return res.status(200).json(200, {}, "Video deleted successfully");
+});
+
+export { uploadVideo, updateVideoDetails, updateVideoThumbnail , deleteVideo };

@@ -302,7 +302,7 @@ const updateUserCoverImg = asyncHandler(async (req, res) => {
   }
   const coverImg = await uploadOnCloudinary(coverImgpath);
   if (!coverImg.url) {
-    throw new ApiError(400, "Error while uploading cover image");
+    throw new ApiError(500, "Error while uploading cover image");
   }
   const userWithUpdatedCoverImg = await User.findByIdAndUpdate(
     user?._id,
@@ -317,7 +317,7 @@ const updateUserCoverImg = asyncHandler(async (req, res) => {
   ).select("-password -refreshToken");
 
   if (!userWithUpdatedCoverImg) {
-    throw new ApiError(500, "Error while updating cover Img");
+    throw new ApiError(500, "Error while saving cover Img");
   }
   return res
     .status(200)
