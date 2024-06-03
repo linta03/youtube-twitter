@@ -4,17 +4,43 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-const uploadVideo = asyncHandler(async (req, res) => {
-  //   check if user is logged in
-  const user = req?.user?._id;
-  if (!user) {
-    throw new ApiError(404, "User is not logged in");
+const getAllVideos = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+
+  let queryObject = {};
+
+  if (query) {
+    queryObject = {
+      $text: { $search: query },
+    };
   }
 
-  //   validate input data
+  if (userId) {
+    queryObject.owner = userId;
+  }
+
+  // Pagination options
+  const options = {
+    page: parseInt(page),
+    limit: parseInt(limit),
+    sort: { [sortBy]: sortType === "asc" ? 1 : -1 },
+  };
+  const videos = await Video.aggregatePaginate(queryObject, options);
+
+  if (!videos) {
+    throw new ApiError(406, "No video found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, videos, "Videos fetched successfully"));
+});
+
+const uploadVideo = asyncHandler(async (req, res) => {
   const thumbnailLocalPath = req?.files?.thumbnail[0]?.path;
   const youtubeVideoLocalPath = req?.files?.youtube_video[0]?.path;
   const { title, description, isPublished } = req.body;
+  const userId = req?.user?._id;
 
   if (!thumbnailLocalPath) {
     throw new ApiError(400, "Thumbnail not found");
@@ -45,6 +71,7 @@ const uploadVideo = asyncHandler(async (req, res) => {
     description,
     isPublished,
     duration,
+    owner: userId,
   });
 
   if (!video) {
@@ -59,19 +86,36 @@ const uploadVideo = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, video, "Video Uploaded successfully"));
 });
 
-const updateVideoDetails = asyncHandler(async (req, res) => {
-  if (!req?.user?._id) {
-    throw new ApiError("User should be authenticated to update video");
+const getVideoById = asyncHandler(async (req, res) => {
+  const { videoId } = req?.params;
+  if (!videoId) {
+    throw new ApiError(400, "Video Id is required");
   }
-  const { _id } = req?.body;
-  const { title, description, isPublished } = res?.body;
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(400, "No Video found with this id");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, video, "Video fetched successfully"));
+});
 
-  if (title.trim() === "" || description.trim() === "") {
+const updateVideoDetails = asyncHandler(async (req, res) => {
+  console.log(req);
+
+  const { videoId } = req?.params;
+  const { title, description, isPublished } = req?.body;
+
+  if (!(title || description)) {
+    throw new ApiError(400, "Title , desscription is required");
+  }
+
+  if (title?.trim() === "" || description?.trim() === "") {
     throw new ApiError(400, "All fields are required (title & description)");
   }
 
   const video = await Video.findByIdAndUpdate(
-    _id,
+    videoId,
     {
       $set: {
         title,
@@ -92,26 +136,23 @@ const updateVideoDetails = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "Video updated successfully"));
+    .json(new ApiResponse(200, video, "Video updated successfully"));
 });
 
 const updateVideoThumbnail = asyncHandler(async (req, res) => {
-  if (!req?.user?._id) {
-    throw new ApiError("User should be authenticated to update video");
-  }
-  const { _id } = req?.body;
-  const thumbnailPath = req?.files?.path;
-  if (!thumbnailPath) {
+  const { videoId } = req?.params;
+  const thumbnailLocalPath = req?.files?.thumbnail[0]?.path;
+  if (!thumbnailLocalPath) {
     throw new ApiError(400, "Thumbnail file is required");
   }
 
-  const thumbnail = await uploadOnCloudinary(thumbnailPath);
+  const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
   if (!thumbnail?.url) {
     throw new ApiError(400, "Thumbnail not found");
   }
 
-  const videoWithUpdatedDetails = await findByIdAndUpdate(
-    _id,
+  const videoWithUpdatedDetails = await Video.findByIdAndUpdate(
+    videoId,
     {
       $set: {
         thumbnail: thumbnail?.url,
@@ -138,16 +179,42 @@ const updateVideoThumbnail = asyncHandler(async (req, res) => {
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
-  if (!req?.user?._id) {
-    throw new ApiError("User should be authenticated to update video");
-  }
-  const { _id } = req?.body;
+  const { videoId } = req?.params;
 
-  const deletedVideo = await Video.findByIdAndDelete(_id);
+  const deletedVideo = await Video.findByIdAndDelete(videoId);
   if (!deletedVideo) {
-    throw new ApiError(404, `No video found with this (${_id}) id `);
+    throw new ApiError(404, `No video found with this (${videoId}) id `);
   }
   return res.status(200).json(200, {}, "Video deleted successfully");
 });
 
-export { uploadVideo, updateVideoDetails, updateVideoThumbnail , deleteVideo };
+const togglePublishStatus = asyncHandler(async (req, res) => {
+  const { videoId } = req?.params;
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      $set: {
+        isPublished: !isPublished,
+      },
+    },
+    { new: true },
+  );
+  if (!updatedVideo) {
+    throw new ApiError(400, "Cannot find video with this id ");
+  }
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedVideo, "Publish status changed successfully"),
+    );
+});
+
+export {
+  getAllVideos,
+  uploadVideo,
+  getVideoById,
+  updateVideoDetails,
+  updateVideoThumbnail,
+  deleteVideo,
+  togglePublishStatus,
+};
