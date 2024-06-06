@@ -344,9 +344,11 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
   await Like.deleteMany({
     video: videoId,
+    likedBy: req?.user?._id,
   });
   await Comment.deleteMany({
     video: videoId,
+    owner: req?.user?._id,
   });
   return res.status(200).json(200, {}, "Video deleted successfully");
 });
