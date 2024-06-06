@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import { Mongoose } from "mongoose";
+import mongoose from "mongoose";
 
 const options = {
   httpOnly: true,
@@ -212,7 +212,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 
   const { oldPassword, newPassword } = req.body;
   const user = await User.findById(req?.user?._id);
-  const isPasswordMatched = await User.isPasswordCorrect(oldPassword);
+  const isPasswordMatched = await user.isPasswordCorrect(oldPassword);
   if (!isPasswordMatched) {
     throw new ApiError(400, "Invalid Old Password");
   }
@@ -225,10 +225,10 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
-  const { user } = req?.user;
+  const { _id } = req?.user;
   return res
     .status(400)
-    .json(new ApiResponse(200, user, "Current User fetched successfully"));
+    .json(new ApiResponse(200, _id, "Current User fetched successfully"));
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
@@ -259,12 +259,13 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  const avatarPath = req?.files?.path;
-  const { user } = req?.user;
+  const avatarPath = req?.files?.avatar[0]?.path;
+  const { user } = req;
   if (!avatarPath) {
     throw new ApiError(400, "Avatar file is missing");
   }
   const avatar = await uploadOnCloudinary(avatarPath);
+  console.log(avatar?.url);
   if (!avatar.url) {
     throw new ApiError(500, "Error while upload avatar");
   }
@@ -293,8 +294,9 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImg = asyncHandler(async (req, res) => {
-  const { user } = req?.user;
-  const coverImgpath = req?.files?.path;
+  const { user } = req;
+  console.log(req?.files);
+  const coverImgpath = req?.files?.coverImg[0]?.path;
 
   if (!coverImgpath) {
     throw new ApiError(400, "Cover Image is missing");
@@ -402,7 +404,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
     {
       $match: {
-        _id: new Mongoose.Types.ObjectId(req?.user?._id),
+        _id: new mongoose.Types.ObjectId(req.user._id),
       },
     },
     {
@@ -418,11 +420,15 @@ const getWatchHistory = asyncHandler(async (req, res) => {
               localField: "owner",
               foreignField: "_id",
               as: "owner",
-              pipeline: {
-                userName: 1,
-                fullName: 1,
-                avatar: 1,
-              },
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
             },
           },
           {
