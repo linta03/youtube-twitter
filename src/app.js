@@ -24,6 +24,7 @@ import commentRouter from "./routes/comment.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
 import playListRouter from "./routes/playlist.routes.js";
 import likesRouter from "./routes/likes.routes.js";
+import dashboardRouter from "./routes/dashboard.routes.js";
 
 //routes declaration
 app.use("/api/v1/users", UserRouter);
@@ -34,5 +35,6 @@ app.use("/api/v1/comments", commentRouter);
 app.use("/api/v1/subscription", subscriptionRouter);
 app.use("/api/v1/playlists", playListRouter);
 app.use("/api/v1/likes", likesRouter);
+app.use("/api/v1/dashboard", dashboardRouter);
 
 export default app;
